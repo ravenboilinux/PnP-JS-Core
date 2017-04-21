@@ -1,7 +1,6 @@
-"use strict";
-
-import { HttpClientImpl } from "./httpClient";
+import { HttpClientImpl } from "./httpclient";
 import { Util } from "../utils/util";
+import { SPRequestExecutorUndefinedException } from "../utils/exceptions";
 
 /**
  * Makes requests using the SP.RequestExecutor library.
@@ -12,25 +11,25 @@ export class SPRequestExecutorClient implements HttpClientImpl {
      */
     public fetch(url: string, options: any): Promise<Response> {
         if (typeof SP === "undefined" || typeof SP.RequestExecutor === "undefined") {
-            throw new Error("SP.RequestExecutor is undefined. " +
-                "Load the SP.RequestExecutor.js library (/_layouts/15/SP.RequestExecutor.js) before loading the PnP JS Core library.");
+            throw new SPRequestExecutorUndefinedException();
         }
 
-        let addinWebUrl = url.substring(0, url.indexOf("/_api")),
-            executor = new SP.RequestExecutor(addinWebUrl),
-            headers: { [key: string]: string; } = {},
-            iterator,
-            temp;
+        const addinWebUrl = url.substring(0, url.indexOf("/_api")),
+            executor = new SP.RequestExecutor(addinWebUrl);
+
+        let headers: { [key: string]: string; } = {},
+            iterator: IterableIterator<[string, string]>,
+            temp: IteratorResult<[string, string]>;
 
         if (options.headers && options.headers instanceof Headers) {
-            iterator = options.headers.entries();
+            iterator = <IterableIterator<[string, string]>>options.headers.entries();
             temp = iterator.next();
             while (!temp.done) {
                 headers[temp.value[0]] = temp.value[1];
                 temp = iterator.next();
             }
         } else {
-            headers = options.headers;
+            headers = <any>options.headers;
         }
 
         return new Promise((resolve, reject) => {
@@ -60,17 +59,20 @@ export class SPRequestExecutorClient implements HttpClientImpl {
      * Converts a SharePoint REST API response to a fetch API response.
      */
     private convertToResponse = (spResponse: SP.ResponseInfo): Response => {
-        let responseHeaders = new Headers();
-        for (let h in spResponse.headers) {
+        const responseHeaders = new Headers();
+        for (const h in spResponse.headers) {
             if (spResponse.headers[h]) {
                 responseHeaders.append(h, spResponse.headers[h]);
             }
         }
 
-        return new Response(<any>spResponse.body, {
+        // issue #256, Cannot have an empty string body when creating a Response with status 204
+        const body = spResponse.statusCode === 204 ? null : spResponse.body;
+
+        return new Response(body, {
             headers: responseHeaders,
             status: spResponse.statusCode,
             statusText: spResponse.statusText,
         });
-    };
+    }
 }

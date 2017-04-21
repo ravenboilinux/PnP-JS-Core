@@ -2,13 +2,14 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"name": "Launch",
+			"name": "Debug",
 			"type": "node",
 			"request": "launch",
-			"program": "${workspaceRoot}pnp.js",
+			"program": "${workspaceRoot}/debug/debug.ts",
 			"stopOnEntry": false,
 			"args": [],
 			"cwd": "${workspaceRoot}",
+			"preLaunchTask": "build:debug",
 			"runtimeExecutable": null,
 			"runtimeArgs": [
 				"--nolazy"
@@ -16,17 +17,22 @@
 			"env": {
 				"NODE_ENV": "development"
 			},
-			"externalConsole": false,
-			"sourceMaps": false,
-			"outDir": null
+			"console": "internalConsole",
+			"internalConsoleOptions": "openOnSessionStart",
+			"sourceMaps": true,
+			"outFiles": [
+				"${workspaceRoot}/debugging/**/*.js"
+			]
 		},
 		{
-			"name": "Gulp",
+			"name": "Gulp Test",
 			"type": "node",
 			"request": "launch",
 			"program": "${workspaceRoot}/node_modules/gulp/bin/gulp.js",
 			"stopOnEntry": false,
-			"args": ["test"],
+			"args": [
+				"test"
+			],
 			"cwd": "${workspaceRoot}",
 			"runtimeExecutable": null,
 			"runtimeArgs": [
@@ -35,19 +41,14 @@
 			"env": {
 				"NODE_ENV": "development"
 			},
-			"externalConsole": false,
-			"sourceMaps": false,
-			"outDir": null
+			"console": "internalConsole",
+			"sourceMaps": false
 		},
 		{
 			"name": "Attach",
 			"type": "node",
 			"request": "attach",
-			"port": 5858,
-			"sourceMaps": false,
-			"outDir": null,
-			"localRoot": "${workspaceRoot}",
-			"remoteRoot": null
+			"port": 5858
 		}
 	]
 }

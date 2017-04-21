@@ -1,5 +1,3 @@
-"use strict";
-
 import { HttpClientImpl } from "./httpclient";
 
 declare var global: any;

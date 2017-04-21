@@ -1,8 +1,6 @@
-"use strict";
-
 import { expect } from "chai";
-import * as Storage from "../../src/utils/Storage";
-import MockStorage  from "../mocks/MockStorage";
+import * as Storage from "../../src/utils/storage";
+import MockStorage  from "../mocks/mockstorage";
 
 describe("Storage", () => {
 
@@ -30,7 +28,7 @@ describe("Storage", () => {
         });
 
         it("Use getOrPut to add a value using a getter function and return it", () => {
-            wrapper.getOrPut("test", function () { return new Promise((r, n) => "value"); }).then(function () {
+            wrapper.getOrPut("test", () => { return new Promise(() => "value"); }).then(() => {
                 let ret = wrapper.get("test");
                 expect(ret).to.eq("value");
             });

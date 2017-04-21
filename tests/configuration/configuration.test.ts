@@ -1,9 +1,7 @@
-"use strict";
-
 import { expect } from "chai";
-import  * as Collections  from "../../src/collections/collections";
+import * as Collections from "../../src/collections/collections";
 import * as Configuration from "../../src/configuration/configuration";
-import {default as MockConfigurationProvider} from "../mocks/mockConfigurationProvider";
+import { default as MockConfigurationProvider } from "../mocks/mockconfigurationprovider";
 
 describe("Configuration", () => {
 

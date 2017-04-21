@@ -1,8 +1,8 @@
 | Q               | A
 | --------------- | ---
-| Bug fix?        | no - yes?
-| New feature?    | no - yes?
-| New sample?      | no - yes?
+| Bug fix?        | [ ]
+| New feature?    | [ ]
+| New sample?      | [ ]
 | Related issues?  | fixes #X, partially #Y, mentioned in #Z
 
 #### What's in this Pull Request?

@@ -1,12 +1,10 @@
-"use strict";
-
 declare var global: any;
 declare var require: (path: string) => any;
-let nodeFetch = require("node-fetch");
-let u: any = require("url");
+const nodeFetch = require("node-fetch");
+const u: any = require("url");
 import { HttpClientImpl } from "./httpclient";
 import { Util } from "../utils/util";
-import { Logger, LogLevel } from "../utils/logging";
+import { AuthUrlException } from "../utils/exceptions";
 
 export interface AuthToken {
     token_type: string;
@@ -22,15 +20,18 @@ export interface AuthToken {
  */
 export class NodeFetchClient implements HttpClientImpl {
 
-    private static SharePointServicePrincipal: string = "00000003-0000-0ff1-ce00-000000000000";
+    private static SharePointServicePrincipal = "00000003-0000-0ff1-ce00-000000000000";
     private token: AuthToken = null;
 
     constructor(public siteUrl: string, private _clientId: string, private _clientSecret: string, private _realm = "") {
 
-        // here we "cheat" and set the globals for fetch things when this client is instantiated
+        // here we set the globals for fetch things when this client is instantiated
         global.Headers = nodeFetch.Headers;
         global.Request = nodeFetch.Request;
         global.Response = nodeFetch.Response;
+        global._spPageContextInfo = {
+            webAbsoluteUrl: siteUrl,
+        };
     }
 
     public fetch(url: string, options: any): Promise<Response> {
@@ -50,34 +51,37 @@ export class NodeFetchClient implements HttpClientImpl {
      */
     public getAddInOnlyAccessToken(): Promise<AuthToken> {
 
-        if (this.token !== null && new Date() < this.toDate(this.token.expires_on)) {
-            return new Promise<AuthToken>(r => r(this.token));
-        }
+        return new Promise<AuthToken>((resolve, reject) => {
 
-        return this.getRealm().then(realm => {
+            if (this.token !== null && new Date() < this.toDate(this.token.expires_on)) {
+                resolve(this.token);
+            } else {
+                this.getRealm().then((realm: string) => {
 
-            let resource = this.getFormattedPrincipal(NodeFetchClient.SharePointServicePrincipal, u.parse(this.siteUrl).hostname, realm);
-            let formattedClientId = this.getFormattedPrincipal(this._clientId, "", realm);
+                    const resource = this.getFormattedPrincipal(NodeFetchClient.SharePointServicePrincipal, u.parse(this.siteUrl).hostname, realm);
+                    const formattedClientId = this.getFormattedPrincipal(this._clientId, "", realm);
 
-            return this.getAuthUrl(realm).then((authUrl: string) => {
+                    this.getAuthUrl(realm).then((authUrl: string) => {
 
-                let body = [];
-                body.push("grant_type=client_credentials");
-                body.push(`client_id=${formattedClientId}`);
-                body.push(`client_secret=${encodeURIComponent(this._clientSecret)}`);
-                body.push(`resource=${resource}`);
+                        const body: string[] = [];
+                        body.push("grant_type=client_credentials");
+                        body.push(`client_id=${formattedClientId}`);
+                        body.push(`client_secret=${encodeURIComponent(this._clientSecret)}`);
+                        body.push(`resource=${resource}`);
 
-                return nodeFetch(authUrl, {
-                    body: body.join("&"),
-                    headers: {
-                        "Content-Type": "application/x-www-form-urlencoded",
-                    },
-                    method: "POST",
-                }).then((r: Response) => r.json()).then(tok => {
-                    this.token = tok;
-                    return this.token;
-                });
-            });
+                        nodeFetch(authUrl, {
+                            body: body.join("&"),
+                            headers: {
+                                "Content-Type": "application/x-www-form-urlencoded",
+                            },
+                            method: "POST",
+                        }).then((r: Response) => r.json()).then((tok: AuthToken) => {
+                            this.token = tok;
+                            resolve(this.token);
+                        });
+                    });
+                }).catch(e => reject(e));
+            }
         });
     }
 
@@ -89,17 +93,17 @@ export class NodeFetchClient implements HttpClientImpl {
                 resolve(this._realm);
             }
 
-            let url = Util.combinePaths(this.siteUrl, "vti_bin/client.svc");
+            const url = Util.combinePaths(this.siteUrl, "vti_bin/client.svc");
 
             nodeFetch(url, {
-                "method": "POST",
                 "headers": {
                     "Authorization": "Bearer ",
                 },
-            }).then((r) => {
+                "method": "POST",
+            }).then((r: Response) => {
 
-                let data: string = r.headers.get("www-authenticate");
-                let index = data.indexOf("Bearer realm=\"");
+                const data: string = r.headers.get("www-authenticate");
+                const index = data.indexOf("Bearer realm=\"");
                 this._realm = data.substring(index + 14, index + 50);
                 resolve(this._realm);
             });
@@ -108,26 +112,20 @@ export class NodeFetchClient implements HttpClientImpl {
 
     private getAuthUrl(realm: string): Promise<string> {
 
-        let url = `https://accounts.accesscontrol.windows.net/metadata/json/1?realm=${realm}`;
+        const url = `https://accounts.accesscontrol.windows.net/metadata/json/1?realm=${realm}`;
 
         return nodeFetch(url).then((r: Response) => r.json()).then((json: { endpoints: { protocol: string, location: string }[] }) => {
 
-            for (let i = 0; i < json.endpoints.length; i++) {
-                if (json.endpoints[i].protocol === "OAuth2") {
-                    return json.endpoints[i].location;
-                }
+            const eps = json.endpoints.filter(ep => ep.protocol === "OAuth2");
+            if (eps.length > 0) {
+                return eps[0].location;
             }
 
-            Logger.log({
-                data: json,
-                level: LogLevel.Error,
-                message: "Auth URL Endpoint could not be determined from data. Data logged.",
-            });
-            throw new Error("Auth URL Endpoint could not be determined from data. Data logged.");
+            throw new AuthUrlException(json);
         });
     }
 
-    private getFormattedPrincipal(principalName, hostName, realm): string {
+    private getFormattedPrincipal(principalName: string, hostName: string, realm: string): string {
         let resource = principalName;
         if (hostName !== null && hostName !== "") {
             resource += "/" + hostName;
@@ -141,7 +139,7 @@ export class NodeFetchClient implements HttpClientImpl {
         if (tmp < 10000000000) {
             tmp *= 1000;
         }
-        let d = new Date();
+        const d = new Date();
         d.setTime(tmp);
         return d;
     }

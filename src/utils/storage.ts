@@ -1,6 +1,6 @@
-"use strict";
-
 import { Util } from "./util";
+import { Dictionary } from "../collections/collections";
+import { RuntimeConfig } from "../configuration/pnplibconfig";
 
 /**
  * A wrapper class to provide a consistent interface to browser based storage
@@ -19,7 +19,7 @@ export class PnPClientStorageWrapper implements PnPClientStore {
      * @constructor
      */
     constructor(private store: Storage, public defaultTimeoutMinutes?: number) {
-        this.defaultTimeoutMinutes = (defaultTimeoutMinutes === void 0) ? 5 : defaultTimeoutMinutes;
+        this.defaultTimeoutMinutes = (defaultTimeoutMinutes === void 0) ? -1 : defaultTimeoutMinutes;
         this.enabled = this.test();
     }
 
@@ -34,13 +34,13 @@ export class PnPClientStorageWrapper implements PnPClientStore {
             return null;
         }
 
-        let o = this.store.getItem(key);
+        const o = this.store.getItem(key);
 
         if (o == null) {
             return null;
         }
 
-        let persistable = JSON.parse(o);
+        const persistable = JSON.parse(o);
 
         if (new Date(persistable.expiration) <= new Date()) {
 
@@ -89,13 +89,9 @@ export class PnPClientStorageWrapper implements PnPClientStore {
             return getter();
         }
 
-        if (!Util.isFunction(getter)) {
-            throw "Function expected for parameter 'getter'.";
-        }
+        return new Promise((resolve) => {
 
-        return new Promise((resolve, reject) => {
-
-            let o = this.get<T>(key);
+            const o = this.get<T>(key);
 
             if (o == null) {
                 getter().then((d) => {
@@ -112,7 +108,7 @@ export class PnPClientStorageWrapper implements PnPClientStore {
      * Used to determine if the wrapped storage is available currently
      */
     private test(): boolean {
-        let str = "test";
+        const str = "test";
         try {
             this.store.setItem(str, str);
             this.store.removeItem(str);
@@ -127,7 +123,13 @@ export class PnPClientStorageWrapper implements PnPClientStore {
      */
     private createPersistable(o: any, expire?: Date): string {
         if (typeof expire === "undefined") {
-            expire = Util.dateAdd(new Date(), "minute", this.defaultTimeoutMinutes);
+
+            // ensure we are by default inline with the global library setting
+            let defaultTimeout = RuntimeConfig.defaultCachingTimeoutSeconds;
+            if (this.defaultTimeoutMinutes > 0) {
+                defaultTimeout = this.defaultTimeoutMinutes * 60;
+            }
+            expire = Util.dateAdd(new Date(), "second", defaultTimeout);
         }
 
         return JSON.stringify({ expiration: expire, value: o });
@@ -177,6 +179,41 @@ export interface PnPClientStore {
 }
 
 /**
+ * A thin implementation of in-memory storage for use in nodejs
+ */
+class MemoryStorage {
+
+    constructor(private _store = new Dictionary<string>()) { }
+
+    public get length(): number {
+        return this._store.count();
+    }
+
+    public clear(): void {
+        this._store.clear();
+    }
+
+    public getItem(key: string): any {
+        return this._store.get(key);
+    }
+
+    public key(index: number): string {
+        return this._store.getKeys()[index];
+    }
+
+    public removeItem(key: string): void {
+        this._store.remove(key);
+    }
+
+    public setItem(key: string, data: string): void {
+        this._store.add(key, data);
+    }
+
+    [key: string]: any;
+    [index: number]: string;
+}
+
+/**
  * A class that will establish wrappers for both local and session storage
  */
 export class PnPClientStorage {
@@ -197,7 +234,7 @@ export class PnPClientStorage {
      * @constructor
      */
     constructor() {
-        this.local = typeof localStorage !== "undefined" ? new PnPClientStorageWrapper(localStorage) : null;
-        this.session = typeof sessionStorage !== "undefined" ? new PnPClientStorageWrapper(sessionStorage) : null;
+        this.local = typeof localStorage !== "undefined" ? new PnPClientStorageWrapper(localStorage) : new PnPClientStorageWrapper(new MemoryStorage());
+        this.session = typeof sessionStorage !== "undefined" ? new PnPClientStorageWrapper(sessionStorage) : new PnPClientStorageWrapper(new MemoryStorage());
     }
 }

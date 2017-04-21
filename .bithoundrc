@@ -3,7 +3,8 @@
     "**/typedoctheme/**",
     "**/server-root/**",
     "**/docs/**",
-    "**/dist/**"
+    "**/dist/**",
+    "**/debug/**"
   ],
   "dependencies": {
     "mute": [

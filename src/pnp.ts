@@ -1,10 +1,8 @@
-"use strict";
-
 import { Util } from "./utils/util";
 import { PnPClientStorage } from "./utils/storage";
 import { Settings } from "./configuration/configuration";
 import { Logger } from "./utils/logging";
-import { Rest } from "./sharepoint/rest/rest";
+import { SPRest } from "./sharepoint/rest";
 import { setRuntimeConfig, LibraryConfiguration } from "./configuration/pnplibconfig";
 
 /**
@@ -19,7 +17,7 @@ export const util = Util;
 /**
  * Provides access to the REST interface
  */
-export const sp = new Rest();
+export const sp = new SPRest();
 
 /**
  * Provides access to local and session storage
@@ -47,7 +45,7 @@ export const setup: (config: LibraryConfiguration) => void = setRuntimeConfig;
 export * from "./types/index";
 
 // creating this class instead of directly assigning to default fixes issue #116
-let Def = {
+const Def = {
     /**
      * Global configuration instance to which providers can be added
      */

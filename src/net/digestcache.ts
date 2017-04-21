@@ -1,33 +1,33 @@
-"use strict";
-
 import { Dictionary } from "../collections/collections";
 import { HttpClient } from "./httpclient";
 import { Util } from "../utils/util";
-import { ODataDefaultParser } from "../sharepoint/rest/odata";
+import { ODataDefaultParser } from "../sharepoint/odata";
 
 export class CachedDigest {
     public expiration: Date;
     public value: string;
 }
 
+// allows for the caching of digests across all HttpClient's which each have their own DigestCache wrapper.
+const digests = new Dictionary<CachedDigest>();
+
 export class DigestCache {
 
-    constructor(private _httpClient: HttpClient, private _digests: Dictionary<CachedDigest> = new Dictionary<CachedDigest>()) { }
+    constructor(private _httpClient: HttpClient, private _digests: Dictionary<CachedDigest> = digests) { }
 
     public getDigest(webUrl: string): Promise<string> {
-        let self = this;
 
-        let cachedDigest: CachedDigest = this._digests.get(webUrl);
+        const cachedDigest: CachedDigest = this._digests.get(webUrl);
         if (cachedDigest !== null) {
-            let now = new Date();
+            const now = new Date();
             if (now < cachedDigest.expiration) {
                 return Promise.resolve(cachedDigest.value);
             }
         }
 
-        let url = Util.combinePaths(webUrl, "/_api/contextinfo");
+        const url = Util.combinePaths(webUrl, "/_api/contextinfo");
 
-        return self._httpClient.fetchRaw(url, {
+        return this._httpClient.fetchRaw(url, {
             cache: "no-cache",
             credentials: "same-origin",
             headers: {
@@ -35,17 +35,17 @@ export class DigestCache {
                 "Content-type": "application/json;odata=verbose;charset=utf-8",
             },
             method: "POST",
-        }).then(function (response) {
-            let parser = new ODataDefaultParser();
+        }).then((response) => {
+            const parser = new ODataDefaultParser();
             return parser.parse(response).then((d: any) => d.GetContextWebInformation);
-        }).then(function (data) {
-            let newCachedDigest = new CachedDigest();
+        }).then((data: any) => {
+            const newCachedDigest = new CachedDigest();
             newCachedDigest.value = data.FormDigestValue;
-            let seconds = data.FormDigestTimeoutSeconds;
-            let expiration = new Date();
+            const seconds = data.FormDigestTimeoutSeconds;
+            const expiration = new Date();
             expiration.setTime(expiration.getTime() + 1000 * seconds);
             newCachedDigest.expiration = expiration;
-            self._digests.add(webUrl, newCachedDigest);
+            this._digests.add(webUrl, newCachedDigest);
             return newCachedDigest.value;
         });
     }

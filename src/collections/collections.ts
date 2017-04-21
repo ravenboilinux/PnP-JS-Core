@@ -1,7 +1,3 @@
-"use strict";
-
-import { Util } from "../utils/util";
-
 /**
  * Interface defining an object with a known property type
  */
@@ -15,23 +11,11 @@ export interface TypedHash<T> {
 export class Dictionary<T> {
 
     /**
-     * The array used to store all the keys
-     */
-    private keys: string[];
-
-    /**
-     * The array used to store all the values
-     */
-    private values: T[];
-
-    /**
      * Creates a new instance of the Dictionary<T> class
      *
      * @constructor
      */
-    constructor() {
-        this.keys = [];
-        this.values = [];
+    constructor(private keys: string[] = [], private values: T[] = []) {
     }
 
     /**
@@ -40,7 +24,7 @@ export class Dictionary<T> {
      * @param key The key whose value we want to return, returns null if the key does not exist
      */
     public get(key: string): T {
-        let index = this.keys.indexOf(key);
+        const index = this.keys.indexOf(key);
         if (index < 0) {
             return null;
         }
@@ -54,7 +38,7 @@ export class Dictionary<T> {
      * @param o The value to add
      */
     public add(key: string, o: T): void {
-        let index = this.keys.indexOf(key);
+        const index = this.keys.indexOf(key);
         if (index > -1) {
             this.values[index] = o;
         } else {
@@ -66,25 +50,21 @@ export class Dictionary<T> {
     /**
      * Merges the supplied typed hash into this dictionary instance. Existing values are updated and new ones are created as appropriate.
      */
-    /* tslint:disable no-string-literal */
     public merge(source: TypedHash<T> | Dictionary<T>): void {
-        if (Util.isFunction(source["getKeys"])) {
-            let sourceAsDictionary = source as Dictionary<T>;
-            let keys = sourceAsDictionary.getKeys();
-            let l = keys.length;
-            for (let i = 0; i < l; i++) {
-                this.add(keys[i], sourceAsDictionary.get(keys[i]));
-            }
+        if ("getKeys" in source) {
+            const sourceAsDictionary = source as Dictionary<T>;
+            sourceAsDictionary.getKeys().map(key => {
+                this.add(key, sourceAsDictionary.get(key));
+            });
         } else {
-            let sourceAsHash = source as TypedHash<T>;
-            for (let key in sourceAsHash) {
+            const sourceAsHash = source as TypedHash<T>;
+            for (const key in sourceAsHash) {
                 if (sourceAsHash.hasOwnProperty(key)) {
-                    this.add(key, source[key]);
+                    this.add(key, sourceAsHash[key]);
                 }
             }
         }
     }
-    /* tslint:enable */
 
     /**
      * Removes a value from the dictionary
@@ -92,12 +72,11 @@ export class Dictionary<T> {
      * @param key The key of the key/value pair to remove. Returns null if the key was not found.
      */
     public remove(key: string): T {
-        let index = this.keys.indexOf(key);
+        const index = this.keys.indexOf(key);
         if (index < 0) {
-            // could throw an exception here
             return null;
         }
-        let val = this.values[index];
+        const val = this.values[index];
         this.keys.splice(index, 1);
         this.values.splice(index, 1);
         return val;

@@ -1,6 +1,7 @@
-"use strict";
-
 declare var global: any;
+import { TypedHash } from "../collections/collections";
+import { deprecated } from "./decorators";
+import { RuntimeConfig } from "../configuration/pnplibconfig";
 
 export class Util {
 
@@ -25,7 +26,7 @@ export class Util {
      */
     public static urlParamExists(name: string): boolean {
         name = name.replace(/[\[]/, "\\[").replace(/[\]]/, "\\]");
-        let regex = new RegExp("[\\?&]" + name + "=([^&#]*)");
+        const regex = new RegExp("[\\?&]" + name + "=([^&#]*)");
         return regex.test(location.search);
     }
 
@@ -36,8 +37,8 @@ export class Util {
      */
     public static getUrlParamByName(name: string): string {
         name = name.replace(/[\[]/, "\\[").replace(/[\]]/, "\\]");
-        let regex = new RegExp("[\\?&]" + name + "=([^&#]*)");
-        let results = regex.exec(location.search);
+        const regex = new RegExp("[\\?&]" + name + "=([^&#]*)");
+        const results = regex.exec(location.search);
         return results == null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
     }
 
@@ -47,8 +48,8 @@ export class Util {
      * @param name The name of the paramter for which we want the boolean value
      */
     public static getUrlParamBoolByName(name: string): boolean {
-        let p = this.getUrlParamByName(name);
-        let isFalse = (p === "" || /false|0/i.test(p));
+        const p = this.getUrlParamByName(name);
+        const isFalse = (p === "" || /false|0/i.test(p));
         return !isFalse;
     }
 
@@ -101,9 +102,9 @@ export class Util {
         if (avoidCache) {
             path += "?" + encodeURIComponent((new Date()).getTime().toString());
         }
-        let head = document.getElementsByTagName("head");
+        const head = document.getElementsByTagName("head");
         if (head.length > 0) {
-            let e = document.createElement("link");
+            const e = document.createElement("link");
             head[0].appendChild(e);
             e.setAttribute("type", "text/css");
             e.setAttribute("rel", "stylesheet");
@@ -117,13 +118,12 @@ export class Util {
      * @param paths 0 to n path parts to combine
      */
     public static combinePaths(...paths: string[]): string {
-        let parts = [];
-        for (let i = 0; i < paths.length; i++) {
-            if (typeof paths[i] !== "undefined" && paths[i] !== null) {
-                parts.push(paths[i].replace(/^[\\|\/]/, "").replace(/[\\|\/]$/, ""));
-            }
-        }
-        return parts.join("/").replace(/\\/, "/");
+
+        return paths
+            .filter(path => typeof path !== "undefined" && path !== null)
+            .map(path => path.replace(/^[\\|\/]/, "").replace(/[\\|\/]$/, ""))
+            .join("/")
+            .replace(/\\/g, "/");
     }
 
     /**
@@ -132,12 +132,12 @@ export class Util {
      * @param chars The length of the random string to generate
      */
     public static getRandomString(chars: number): string {
-        let text = "";
-        let possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        const text = new Array(chars);
+        const possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
         for (let i = 0; i < chars; i++) {
-            text += possible.charAt(Math.floor(Math.random() * possible.length));
+            text[i] = possible.charAt(Math.floor(Math.random() * possible.length));
         }
-        return text;
+        return text.join("");
     }
 
     /**
@@ -148,8 +148,8 @@ export class Util {
     /* tslint:disable no-bitwise */
     public static getGUID(): string {
         let d = new Date().getTime();
-        let guid = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
-            let r = (d + Math.random() * 16) % 16 | 0;
+        const guid = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+            const r = (d + Math.random() * 16) % 16 | 0;
             d = Math.floor(d / 16);
             return (c === "x" ? r : (r & 0x3 | 0x8)).toString(16);
         });
@@ -166,8 +166,8 @@ export class Util {
         return typeof candidateFunction === "function";
     }
 
-    /** 
-     * @returns whether the provided parameter is a JavaScript Array or not. 
+    /**
+     * @returns whether the provided parameter is a JavaScript Array or not.
     */
     public static isArray(array: any): boolean {
 
@@ -196,39 +196,21 @@ export class Util {
      * @param noOverwrite If true existing properties on the target are not overwritten from the source
      *
      */
-    /* tslint:disable:forin */
-    public static extend<T, S>(target: T, source: S, noOverwrite = false): T & S {
+    public static extend(target: any, source: TypedHash<any>, noOverwrite = false): any {
 
-        let result = <T & S>{};
-        for (let id in target) {
-            result[id] = target[id];
+        if (source === null || typeof source === "undefined") {
+            return target;
         }
 
         // ensure we don't overwrite things we don't want overwritten
-        let check: (o, i) => Boolean = noOverwrite ? (o, i) => !o.hasOwnProperty(i) : (o, i) => true;
+        const check: (o: any, i: string) => Boolean = noOverwrite ? (o, i) => !(i in o) : () => true;
 
-        for (let id in source) {
-            if (check(result, id)) {
-                result[id] = source[id];
-            }
-        }
-
-        return result;
-    }
-    /* tslint:enable */
-
-    /**
-     * Applies one or more mixins to the supplied target
-     *
-     * @param derivedCtor The classto which we will apply the mixins
-     * @param baseCtors One or more mixin classes to apply
-     */
-    public static applyMixins(derivedCtor: any, ...baseCtors: any[]) {
-        baseCtors.forEach(baseCtor => {
-            Object.getOwnPropertyNames(baseCtor.prototype).forEach(name => {
-                derivedCtor.prototype[name] = baseCtor.prototype[name];
-            });
-        });
+        return Object.getOwnPropertyNames(source)
+            .filter((v: string) => check(target, v))
+            .reduce((t: any, v: string) => {
+                t[v] = source[v];
+                return t;
+            }, target);
     }
 
     /**
@@ -242,9 +224,10 @@ export class Util {
 
     /**
      * Attempts to make the supplied relative url absolute based on the _spPageContextInfo object, if available
-     * 
+     *
      * @param url The relative url to make absolute
      */
+    @deprecated("The Util.makeUrlAbsolute method is deprecated and will be removed from future releases. Use Util.toAbsoluteUrl instead")
     public static makeUrlAbsolute(url: string): string {
 
         if (Util.isUrlAbsolute(url)) {
@@ -260,5 +243,48 @@ export class Util {
         } else {
             return url;
         }
+    }
+
+    /**
+     * Ensures that a given url is absolute for the current web based on context
+     *
+     * @param candidateUrl The url to make absolute
+     *
+     */
+    public static toAbsoluteUrl(candidateUrl: string): Promise<string> {
+
+        return new Promise((resolve) => {
+
+            if (Util.isUrlAbsolute(candidateUrl)) {
+                // if we are already absolute, then just return the url
+                return resolve(candidateUrl);
+            }
+
+            if (RuntimeConfig.baseUrl !== null) {
+                // base url specified either with baseUrl of spfxContext config property
+                return resolve(Util.combinePaths(RuntimeConfig.baseUrl, candidateUrl));
+            }
+
+            if (typeof global._spPageContextInfo !== "undefined") {
+
+                // operating in classic pages
+                if (global._spPageContextInfo.hasOwnProperty("webAbsoluteUrl")) {
+                    return resolve(Util.combinePaths(global._spPageContextInfo.webAbsoluteUrl, candidateUrl));
+                } else if (global._spPageContextInfo.hasOwnProperty("webServerRelativeUrl")) {
+                    return resolve(Util.combinePaths(global._spPageContextInfo.webServerRelativeUrl, candidateUrl));
+                }
+            }
+
+            // does window.location exist and have _layouts in it?
+            if (typeof global.location !== "undefined") {
+                const index = global.location.toString().toLowerCase().indexOf("/_layouts/");
+                if (index > 0) {
+                    // we are likely in the workbench in /_layouts/
+                    return resolve(Util.combinePaths(global.location.toString().substr(0, index), candidateUrl));
+                }
+            }
+
+            return resolve(candidateUrl);
+        });
     }
 }

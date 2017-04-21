@@ -5,15 +5,23 @@
         "jsx": "react",
         "declaration": false,
         "sourceMap": true,
-        "removeComments": true,
+        "removeComments": false,
         "types": [
-            "whatwg-fetch",
-            "sharepoint",
-            "chai",
-            "chai-as-promised",
             "core-js",
-            "node",
-            "mocha"
-        ]
-    }
+            "sharepoint"
+        ],
+        "lib": ["es6", "dom"],
+        "noImplicitAny": true,
+        "allowUnreachableCode": false,
+        "forceConsistentCasingInFileNames": true,
+        "moduleResolution": "node",
+        "noImplicitThis": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "pretty": true,
+        "experimentalDecorators": true
+    },
+    "include": [
+        "src/**/*"
+    ]
 }

@@ -1,5 +1,3 @@
-"use strict";
-
 import { expect } from "chai";
 import * as Logging from "../../src/utils/logging";
 
@@ -36,17 +34,17 @@ describe("Logging", () => {
         });
 
         it("Should return an accurate count of subscribers", () => {
-            logger.subscribe(new Logging.FunctionListener((e) => { return; }));
-            logger.subscribe(new Logging.FunctionListener((e) => { return; }));
-            logger.subscribe(new Logging.FunctionListener((e) => { return; }));
+            logger.subscribe(new Logging.FunctionListener(() => { return; }));
+            logger.subscribe(new Logging.FunctionListener(() => { return; }));
+            logger.subscribe(new Logging.FunctionListener(() => { return; }));
             expect(logger.count).to.eq(3);
         });
 
         it("Should allow multiple subscribes to be added in one call", () => {
             logger.subscribe(
-                new Logging.FunctionListener((e) => { return; }),
-                new Logging.FunctionListener((e) => { return; }),
-                new Logging.FunctionListener((e) => { return; })
+                new Logging.FunctionListener(() => { return; }),
+                new Logging.FunctionListener(() => { return; }),
+                new Logging.FunctionListener(() => { return; })
             );
             expect(logger.count).to.eq(3);
         });

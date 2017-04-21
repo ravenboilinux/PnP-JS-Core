@@ -1,14 +1,6 @@
-"use strict";
-
 import { TypedHash } from "../collections/collections";
-
-declare var global: any;
-
-export interface NodeClientData {
-    clientId: string;
-    clientSecret: string;
-    siteUrl: string;
-}
+import { HttpClientImpl } from "../net/httpclient";
+import { FetchClient } from "../net/fetchclient";
 
 export interface LibraryConfiguration {
 
@@ -33,14 +25,19 @@ export interface LibraryConfiguration {
     defaultCachingTimeoutSeconds?: number;
 
     /**
-     * If true the SP.RequestExecutor will be used to make the requests, you must include the required external libs
+     * Defines a factory method used to create fetch clients
      */
-    useSPRequestExecutor?: boolean;
+    fetchClientFactory?: () => HttpClientImpl;
 
     /**
-     * If set the library will use node-fetch, typically for use with testing but works with any valid client id/secret pair
+     * The base url used for all requests
      */
-    nodeClientOptions?: NodeClientData;
+    baseUrl?: string;
+
+    /**
+     * Used to supply the current context from an SPFx webpart to the library
+     */
+    spfxContext?: any;
 }
 
 export class RuntimeConfigImpl {
@@ -49,17 +46,19 @@ export class RuntimeConfigImpl {
     private _defaultCachingStore: "session" | "local";
     private _defaultCachingTimeoutSeconds: number;
     private _globalCacheDisable: boolean;
-    private _useSPRequestExecutor: boolean;
-    private _useNodeClient: boolean;
-    private _nodeClientData: NodeClientData;
+    private _fetchClientFactory: () => HttpClientImpl;
+    private _baseUrl: string;
+    private _spfxContext: any;
 
     constructor() {
         // these are our default values for the library
         this._headers = null;
         this._defaultCachingStore = "session";
-        this._defaultCachingTimeoutSeconds = 30;
+        this._defaultCachingTimeoutSeconds = 60;
         this._globalCacheDisable = false;
-        this._useSPRequestExecutor = false;
+        this._fetchClientFactory = () => new FetchClient();
+        this._baseUrl = null;
+        this._spfxContext = null;
     }
 
     public set(config: LibraryConfiguration): void {
@@ -80,19 +79,16 @@ export class RuntimeConfigImpl {
             this._defaultCachingTimeoutSeconds = config.defaultCachingTimeoutSeconds;
         }
 
-        if (config.hasOwnProperty("useSPRequestExecutor")) {
-            this._useSPRequestExecutor = config.useSPRequestExecutor;
+        if (config.hasOwnProperty("fetchClientFactory")) {
+            this._fetchClientFactory = config.fetchClientFactory;
         }
 
-        if (config.hasOwnProperty("nodeClientOptions")) {
-            this._useNodeClient = true;
-            this._useSPRequestExecutor = false; // just don't allow this conflict
-            this._nodeClientData = config.nodeClientOptions;
-            // this is to help things work when running in node.js, specifically batching
-            // we shim the _spPageContextInfo object
-            global._spPageContextInfo = {
-                webAbsoluteUrl: config.nodeClientOptions.siteUrl,
-            };
+        if (config.hasOwnProperty("baseUrl")) {
+            this._baseUrl = config.baseUrl;
+        }
+
+        if (config.hasOwnProperty("spfxContext")) {
+            this._spfxContext = config.spfxContext;
         }
     }
 
@@ -112,20 +108,26 @@ export class RuntimeConfigImpl {
         return this._globalCacheDisable;
     }
 
-    public get useSPRequestExecutor(): boolean {
-        return this._useSPRequestExecutor;
+    public get fetchClientFactory(): () => HttpClientImpl {
+        return this._fetchClientFactory;
     }
 
-    public get useNodeFetchClient(): boolean {
-        return this._useNodeClient;
-    }
+    public get baseUrl(): string {
 
-    public get nodeRequestOptions(): NodeClientData {
-        return this._nodeClientData;
+        if (this._baseUrl !== null) {
+
+            return this._baseUrl;
+
+        } else if (this._spfxContext !== null) {
+
+            return this._spfxContext.pageContext.web.absoluteUrl;
+        }
+
+        return null;
     }
 }
 
-let _runtimeConfig = new RuntimeConfigImpl();
+const _runtimeConfig = new RuntimeConfigImpl();
 
 export let RuntimeConfig = _runtimeConfig;
 

@@ -1,9 +1,7 @@
-"use strict";
-
-import {IConfigurationProvider} from "../configuration";
-import {TypedHash} from "../../collections/collections";
+import { IConfigurationProvider } from "../configuration";
+import { TypedHash } from "../../collections/collections";
 import { default as CachingConfigurationProvider } from "./cachingConfigurationProvider";
-import { Web } from "../../sharepoint/rest/webs";
+import { Web } from "../../sharepoint/webs";
 
 /**
  * A configuration provider which loads configuration values from a SharePoint list
@@ -45,12 +43,17 @@ export default class SPListConfigurationProvider implements IConfigurationProvid
     public getConfiguration(): Promise<TypedHash<string>> {
 
         return this.web.lists.getByTitle(this.listTitle).items.select("Title", "Value")
-            .getAs<any, { Title: string, Value: string }[]>().then(function (data) {
-                let configuration: TypedHash<string> = {};
-                data.forEach((i) => {
-                    configuration[i.Title] = i.Value;
-                });
-                return configuration;
+            .getAs<{ Title: string, Value: string }[]>().then((data) => {
+                return data.reduce((configuration, item) => {
+
+                    return Object.defineProperty(configuration, item.Title, {
+                        configurable: false,
+                        enumerable: false,
+                        value: item.Value,
+                        writable: false,
+                    });
+
+                }, {});
             });
     }
 
@@ -60,7 +63,7 @@ export default class SPListConfigurationProvider implements IConfigurationProvid
      * @return {CachingConfigurationProvider} Caching providers which wraps the current provider
      */
     public asCaching(): CachingConfigurationProvider {
-        let cacheKey = `splist_${this.web.toUrl()}+${this.listTitle}`;
+        const cacheKey = `splist_${this.web.toUrl()}+${this.listTitle}`;
         return new CachingConfigurationProvider(this, cacheKey);
     }
 }

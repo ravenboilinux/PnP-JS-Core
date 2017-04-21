@@ -1,12 +1,11 @@
-"use strict";
-
-import {IConfigurationProvider} from "../configuration";
-import {TypedHash} from "../../collections/collections";
+import { IConfigurationProvider } from "../configuration";
+import { TypedHash } from "../../collections/collections";
 import * as storage from "../../utils/storage";
+import { NoCacheAvailableException } from "../../utils/exceptions";
 
-/** 
+/**
  * A caching provider which can wrap other non-caching providers
- * 
+ *
  */
 export default class CachingConfigurationProvider implements IConfigurationProvider {
     private wrappedProvider: IConfigurationProvider;
@@ -23,12 +22,12 @@ export default class CachingConfigurationProvider implements IConfigurationProvi
     constructor(wrappedProvider: IConfigurationProvider, cacheKey: string, cacheStore?: storage.PnPClientStore) {
         this.wrappedProvider = wrappedProvider;
         this.store = (cacheStore) ? cacheStore : this.selectPnPCache();
-        this.cacheKey = `_configcache_${ cacheKey }`;
+        this.cacheKey = `_configcache_${cacheKey}`;
     }
 
     /**
      * Gets the wrapped configuration providers
-     * 
+     *
      * @return {IConfigurationProvider} Wrapped configuration provider
      */
     public getWrappedProvider(): IConfigurationProvider {
@@ -37,25 +36,25 @@ export default class CachingConfigurationProvider implements IConfigurationProvi
 
     /**
      * Loads the configuration values either from the cache or from the wrapped provider
-     * 
+     *
      * @return {Promise<TypedHash<string>>} Promise of loaded configuration values
      */
     public getConfiguration(): Promise<TypedHash<string>> {
         // Cache not available, pass control to  the wrapped provider
-        if ((! this.store) || (!this.store.enabled)) {
+        if ((!this.store) || (!this.store.enabled)) {
             return this.wrappedProvider.getConfiguration();
         }
 
         // Value is found in cache, return it directly
-        let cachedConfig = this.store.get(this.cacheKey);
+        const cachedConfig = this.store.get(this.cacheKey);
         if (cachedConfig) {
-            return new Promise<TypedHash<string>>((resolve, reject) => {
+            return new Promise<TypedHash<string>>((resolve) => {
                 resolve(cachedConfig);
             });
         }
 
         // Get and cache value from the wrapped provider
-        let providerPromise = this.wrappedProvider.getConfiguration();
+        const providerPromise = this.wrappedProvider.getConfiguration();
         providerPromise.then((providedConfig) => {
             this.store.put(this.cacheKey, providedConfig);
         });
@@ -63,13 +62,13 @@ export default class CachingConfigurationProvider implements IConfigurationProvi
     }
 
     private selectPnPCache(): storage.PnPClientStore {
-        let pnpCache = new storage.PnPClientStorage();
+        const pnpCache = new storage.PnPClientStorage();
         if ((pnpCache.local) && (pnpCache.local.enabled)) {
             return pnpCache.local;
         }
         if ((pnpCache.session) && (pnpCache.session.enabled)) {
             return pnpCache.session;
         }
-        throw new Error("Cannot create a caching configuration provider since cache is not available.");
+        throw new NoCacheAvailableException();
     }
 }

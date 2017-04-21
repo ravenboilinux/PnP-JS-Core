@@ -8,6 +8,12 @@ needs please complete the below template to ensure we have the details to help. 
 
 [ ] Question
 
+#### Version
+
+Please specify what version of the library you are using: [         ]
+
+_If you are not using the latest release, please update and see if the issue is resolved before submitting an issue._
+
 #### Expected / Desired Behavior / Question
 _If you are reporting an issue please describe the expected behavior. If you are suggesting an enhancement please
 describe thoroughly the enhancement, how it can be achieved, and expected benefit. If you are asking a question, ask away!_
